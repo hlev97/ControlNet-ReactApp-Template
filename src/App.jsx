@@ -12,10 +12,48 @@ const WebcamDisplay = () => {
     const [handPresence, setHandPresence] = useState(null);
     const [recordedPoints, setRecordedPoints] = useState([]);
     
-    const [imageUrl, setImageUrl] = useState(null); // State to hold the image URL
+    const [imageUrls, setImageUrls] = useState([]); // Holds the URLs of the generated images
 
     const [generateBtnText, setGenerateBtnText] = useState("Generate");
-    const [prompt, setPrompt] = useState("bus");
+    const [prompt, setPrompt] = useState("");
+
+    const [numImages, setNumImages] = useState(3);
+    const [imageResolution, setImageResolution] = useState(512);
+    const [numSteps, setNumSteps] = useState(25);
+    const [seed, setSeed] = useState(42);
+    const [randomSeed, setRandomSeed] = useState(false);
+
+    const [additionalPrompt, setAdditionalPrompt] = useState('');
+    const [negativePrompt, setNegativePrompt] = useState('');
+    const [promptGuidance, setPromptGuidance] = useState(15);
+
+    const resetStates = () => {
+        setRecordedPoints([]);
+        setImageUrls([]); 
+        setPrompt('')
+        setNumImages(3);
+        setImageResolution(512);
+        setNumSteps(25);
+        setSeed(42);
+        setRandomSeed(false);
+        setAdditionalPrompt('');
+        setNegativePrompt('');
+        setPromptGuidance(15);
+        setRecordedPoints([]);
+        drawScribble([]); 
+        setGenerateBtnText("Generate")
+    };
+
+    const screenWidth = window.innerWidth; 
+    let imagesPerRow;
+    if (screenWidth <= 600) {
+        imagesPerRow = 2;
+    } else if (screenWidth > 600 && screenWidth <= 900) {
+        imagesPerRow = 3;
+    } else {
+        imagesPerRow = 4;
+    }
+    const imageWidthPercentage = 100 / imagesPerRow;
     
     useEffect(() => {
         let handLandmarker;
@@ -87,6 +125,7 @@ const WebcamDisplay = () => {
             }
             requestAnimationFrame(detectHands);
         };
+
 
         const startWebcam = async () => {
             try {
@@ -170,50 +209,442 @@ const WebcamDisplay = () => {
         callImageGenAPI(scrible);
       };
 
+    
+
     const callImageGenAPI = async(scrible) => {
         console.log("Image generation called")
-        //TODO: Implement the API call to the image generation model
+
+        const requestData = {
+            image: scrible,
+            prompt:prompt,
+            additional_prompt: additionalPrompt,
+            negative_prompt: negativePrompt,
+            num_images: numImages,
+            image_resolution: imageResolution,
+            preprocess_resolution: 512,
+            num_steps: numSteps,
+            guidance_scale: promptGuidance,
+            seed: seed,
+        };
+    
+        // Make a POST request to the API endpoint
+        fetch('https://1137-34-125-22-152.ngrok-free.app/generate', {
+            method: 'POST', headers: {
+            'Content-Type': 'application/json'
+            }, body: JSON.stringify(requestData)
+        }).then(response => {
+            // Check if the response is successful
+            if (!response.ok) {
+            throw new Error('Network response was not ok');
+            }
+            // Parse the JSON response
+            return response.json();
+        })
+        .then(data => {
+            // Handle the response data
+            setImageUrls(data.image);
+            setGenerateBtnText("Generate");
+            console.log('Response from API:', data);
+        })
+        .catch(error => {
+            // Handle errors
+            console.error('There was a problem with the fetch operation:', error);
+        });
         
-    };
+    };    
+
+  
+  // Button Component
+  const Button = ({ onClick, label }) => (
+    <button onClick={onClick}>{label}</button>
+  );
 
     return (
     <div className="App">
       <header className="App-header">   
         <h1>Doodle by hand to image</h1>
-        <div style={{ position: "relative" }}>
-            <video className='video'
-            ref={videoRef}
-            width="640"
-            height="480"
-            autoPlay
-            playsInline
-            muted // Mute the video to avoid feedback noise
-            ></video>
-            <canvas className='video'
-                ref={canvasRef}
-                width="640"
-                height="480"
-                style={{ position: "absolute", top: 0, left: 0 }}
-            ></canvas>
-            <canvas className='video'
-                ref={scribbleCanvasRef}
-                width="640"
-                height="480"
-                style={{ position: "absolute", top: 0, left: 0 }}
-            ></canvas>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ width: '50%', margin: '20px' }}>
+                <h2>Additional hyperparameters</h2>
+                <span>Optimize your image generation with these advanced settings. Adjust the sliders to control the output's quantity, clarity, complexity, and uniqueness. Ideal for users seeking a fine balance between creativity and precision, these settings encourage experimentation to discover the perfect configuration for your creative vision.</span>
+                <div style={{ 
+                    margin: '20px', 
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderRadius: '8px', 
+                        background: '#636363', 
+                        color: 'white',
+                        WebkitAppearance: 'none', 
+                        padding: '10px',
+                        margin: '10px 0px' }}>
+                    <div>Number of Images to Generate:</div>
+                    <input
+                        type="range"
+                        min={1}
+                        max={5}
+                        step={1}
+                        value={numImages}
+                        onChange={(e) => setNumImages(e.target.value)}
+                        style={{ 
+                            flexGrow: 1
+                        }}
+                    />
+                    <div>{numImages}</div>
+                    </div>
+                    <div style={{ 
+                        marginBottom: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Generating multiple images lets you explore a range of interpretations of your prompt, enhancing creativity and selection.</div>
+                </div>
+                <div style={{ 
+                    margin: '20px', 
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderRadius: '8px', 
+                        background: '#636363', 
+                        color: 'white',
+                        WebkitAppearance: 'none', 
+                        padding: '10px',
+                        margin: '10px 0px' }}>
+                    <div>Output Image Resolution:</div>
+                    <input
+                        type="range"
+                        min={256}
+                        max={768}
+                        step={128}
+                        value={imageResolution}
+                        onChange={(e) => setImageResolution(e.target.value)}
+                        style={{ 
+                            flexGrow: 1
+                        }}
+                    />
+                    <div>{imageResolution}</div>
+                    </div>
+                    <div style={{ 
+                        marginBottom: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: A higher resolution captures more details but requires more processing time. Choose based on your need for detail versus speed.</div>
+                </div>
+                <div style={{ 
+                    margin: '20px', 
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderRadius: '8px', 
+                        background: '#636363', 
+                        color: 'white',
+                        WebkitAppearance: 'none', 
+                        padding: '10px',
+                        margin: '10px 0px' }}>
+                    <div>Generation Iterations:</div>
+                    <input
+                        type="range"
+                        min={1}
+                        max={100}
+                        step={5}
+                        value={numSteps}
+                        onChange={(e) => setNumSteps(e.target.value)}
+                        style={{ 
+                            flexGrow: 1
+                        }}
+                    />
+                    <div>{numSteps}</div>
+                    </div>
+                    <div style={{ 
+                        marginBottom: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Increasing iterations generally improves image quality at the cost of longer generation times. Find a balance that works for your needs.</div>
+                </div>
+                <div style={{ 
+                    margin: '20px', 
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderRadius: '8px', 
+                        background: '#636363', 
+                        color: 'white',
+                        WebkitAppearance: 'none', 
+                        padding: '10px' }}>
+                    <div>Seed for Randomness Control:</div>
+                        <input
+                            type="range"
+                            min={0}
+                            max={84}
+                            step={2}
+                            value={seed}
+                            onChange={(e) => setSeed(e.target.value)}
+                            style={{ 
+                                flexGrow: 1
+                            }}
+                        />
+                        <div>{seed}</div>
+                    </div>
+                    <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: '10px',
+                            borderRadius: '8px', 
+                            background: '#636363', 
+                            color: 'white',
+                            WebkitAppearance: 'none', 
+                            padding: '10px',
+                            margin: '10px 0px' }}>
+                        <div>Enable Random Seed:</div>
+                        <input
+                                type="checkbox"
+                                checked={randomSeed}
+                                onChange={(e) => setRandomSeed(e.target.checked)}
+                            />
+                        </div>
+                        <div style={{ 
+                        marginBottom: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Consistent seeds reproduce identical results, useful for refining your creations. Toggle randomness for unique outcomes.</div>
+                </div>
+            </div>
+            <div style={{ width: '50%', margin: '20px'}}>
+                <h2>Prompting</h2>
+                <span>Effectively communicate your creative vision to the AI through prompts. Craft clear, descriptive prompts to guide the AI towards generating images that closely match your imagination. Utilize additional and negative prompts to refine and exclude certain elements, offering more control over the outcome.</span>
+                <div style={{ 
+                    margin: '20px',
+                    borderRadius: '8px', 
+                    width: "640px", 
+                    height: "480px", 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px 10px' }}>
+                    <div style={{ 
+                        position: "relative", 
+                        width: "100%", 
+                        height: "100%", 
+                        borderRadius: '8px', 
+                        background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                        WebkitAppearance: 'none',
+                        
+                    }}>
+                        <video className='video'
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted 
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%", 
+                                height: "100%", 
+                            }}
+                        ></video>
+                        <canvas className='video'
+                            ref={canvasRef}
+                            style={{ 
+                                position: "absolute", 
+                                top: 0, 
+                                left: 0,
+                                zIndex: 1, 
+                                width: "100%", 
+                                height: "100%", 
+                            }}
+                        ></canvas>
+                        <canvas className='video'
+                            ref={scribbleCanvasRef}
+                            style={{ 
+                                position: "absolute", 
+                                top: 0, 
+                                left: 0,
+                                zIndex: 2, 
+                                width: "100%", // Ensure it matches the container size
+                                height: "100%", // Ensure it matches the container size
+                            }}
+                        ></canvas>
+                    </div>
+                </div>
+                <div style={{ 
+                    margin: '20px',
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px 0px' }}>
+                    <div style={{ margin: '10px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: '10px',
+                            borderRadius: '8px', 
+                            background: '#636363', 
+                            color: 'white',
+                            WebkitAppearance: 'none', 
+                            padding: '10px',
+                            margin: '10px 0px'
+                            }}>
+                        <div>Main Prompt:</div>
+                        <input
+                            type="text"
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder="Enter your main idea or theme here..."
+                            style={{
+                            flexGrow: 1,
+                            borderRadius: '8px',
+                            border: '1px solid #ccc', 
+                            padding: '8px',
+                            background: 'linear-gradient(to right, #eee, #fff)', 
+                            outline: 'none', 
+                            }}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ margin: '10px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: '10px',
+                            borderRadius: '8px', 
+                            background: '#636363', 
+                            color: 'white',
+                            WebkitAppearance: 'none', 
+                            padding: '10px',
+                            margin: '10px 0px'
+                            }}>
+                        <div>Refine with Additional Prompt:</div>
+                        <input
+                            type="text"
+                            value={additionalPrompt}
+                            onChange={(e) => setAdditionalPrompt(e.target.value)}
+                            placeholder="(Optional)"
+                            style={{
+                            flexGrow: 1,
+                            borderRadius: '8px',
+                            border: '1px solid #ccc', 
+                            padding: '8px',
+                            background: 'linear-gradient(to right, #eee, #fff)', 
+                            outline: 'none', 
+                            }}
+                            />
+                        </div>
+                        <div style={{ 
+                        margin: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Use positive promps to add more details or specific elements you want included in your image.</div>
+                    </div>
+                    <div style={{ margin: '10px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: '10px',
+                            borderRadius: '8px', 
+                            background: '#636363', 
+                            color: 'white',
+                            WebkitAppearance: 'none', 
+                            padding: '10px',
+                            margin: '10px 0px'
+                            }}>
+                        <div>Refine with Additional Prompt:</div>
+                        <input
+                            type="text"
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            placeholder="(Optional)"
+                            style={{
+                            flexGrow: 1,
+                            borderRadius: '8px',
+                            border: '1px solid #ccc', 
+                            padding: '8px',
+                            background: 'linear-gradient(to right, #eee, #fff)', 
+                            outline: 'none', 
+                            }}
+                            />
+                        </div>
+                        <div style={{ 
+                        margin: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Use negative promps to avoid unwanted artfifacts to be included in your generated image.</div>
+                    </div>
+                </div>
+                <div style={{ 
+                    margin: '20px', 
+                    borderRadius: '8px', 
+                    background: 'linear-gradient(to right, #ddd 0%, #ddd 100%)', 
+                    WebkitAppearance: 'none', 
+                    padding: '10px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '10px',
+                        borderRadius: '8px', 
+                        background: '#636363', 
+                        color: 'white',
+                        WebkitAppearance: 'none', 
+                        padding: '10px',
+                        margin: '10px 0px' }}>
+                    <div>Guidance Control:</div>
+                    <input
+                        type="range"
+                        min={0.1}
+                        max={30.0}
+                        step={0.1}
+                        value={promptGuidance}
+                        onChange={(e) => setPromptGuidance(e.target.value)}
+                        style={{ 
+                            flexGrow: 1
+                        }}
+                    />
+                    <div>{promptGuidance}</div>
+                    </div>
+                    <div style={{ 
+                        marginBottom: '20px', 
+                        fontSize: '18px',
+                        fontWeight: 'bold' }}>Tip: Adjust the guidance to influence the creativity of the generated images.</div>
+                </div>
+            </div>
         </div>
         <div>
             <button className='button-6' onClick={() => {setRecordedPoints([]); drawScribble([])}}>Clear</button>
             <button className='button-6' onClick={() => saveScribble()}>Save</button>
             <button className='button-6' onClick={generateImage}>{generateBtnText}</button>
+            <button className='button-6' onClick={() => resetStates()}>Reset</button>
         </div>
-        <div>
-            <label htmlFor="prompt">Prompt:</label>
-            <input className="textbox" type="text" id="prompt" name="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)}/><br/>
-            {/*TODO: Add more inputs here */}
-            </div>
         {/*<p className='small'>Recorded Points: {JSON.stringify(recordedPoints)}</p>*/}
-        {imageUrl && <img className='video' src={imageUrl} alt="Scribble Image" style={{backgroundColor: 'white'}}/>} {/* Display the image if imageUrl is not null */}
+        <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+            marginTop: "20px"
+        }}>
+            {imageUrls.map((url, index) => (
+                <img 
+                    key={index} 
+                    src={url} 
+                    alt={`Generated Image ${index + 1}`}
+                    style={{
+                        width: `calc(${imageWidthPercentage}% - 20px)`, // Adjusting for 10px gap on either side
+                        height: 'auto'
+                    }}
+                />
+            ))}
+        </div>
       </header>
     </div>
     );
